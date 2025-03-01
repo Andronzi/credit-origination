@@ -1,0 +1,101 @@
+{
+    "schemes": [
+        "http"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "API для управления кредитными заявками",
+        "title": "Credit Origination API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/",
+    "paths": {
+        "/application": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Создать заявку",
+                "parameters": [
+                    {
+                        "description": "Данные заявки",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Andronzi_credit-origination_internal_transport_dto_request.CreditApplicationCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Andronzi_credit-origination_internal_transport_dto_response.CreditApplicationResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "github_com_Andronzi_credit-origination_internal_transport_dto_request.CreditApplicationCreateRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "term"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "example": 150000.5
+                },
+                "term": {
+                    "type": "integer",
+                    "example": 12
+                }
+            }
+        },
+        "github_com_Andronzi_credit-origination_internal_transport_dto_response.CreditApplicationResponse": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "example": 150000.5
+                },
+                "created_at": {
+                    "type": "string",
+                    "example": "2023-10-01T12:34:56Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "NEW"
+                },
+                "term": {
+                    "type": "integer",
+                    "example": 12
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2023-10-01T12:34:56Z"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

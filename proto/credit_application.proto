@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package credit;
+option go_package = "pkg/grpc/credit";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+enum ApplicationStatus {
+    NEW = 0;
+    SCORING = 1;
+    EMPLOYMENT_CHECK = 2;
+    APPROVED = 3;
+    REJECTED = 4;
+}
+
+service ApplicationService {
+  rpc Get(GetApplicationRequest) returns (ApplicationResponse);
+  rpc Create(CreateApplicationRequest) returns (ApplicationResponse);
+  rpc Update(UpdateApplicationRequest) returns (ApplicationResponse);
+  rpc Delete(DeleteApplicationRequest) returns (google.protobuf.Empty);
+  rpc List(ListApplicationRequest) returns (ListApplicationResponse);
+}
+
+message CreateApplicationRequest {
+  double amount = 1;
+  int32 term = 2;
+  double interest = 3;
+}
+
+message UpdateApplicationRequest {
+    string id = 1;
+    double amount = 2;
+    int32 term = 3;
+    double interest = 4;
+}
+
+message GetApplicationRequest {
+    string id = 1;
+}
+
+message DeleteApplicationRequest {
+    string id = 1;
+}
+
+message ListApplicationRequest {
+    ApplicationStatus status = 1;
+    int32 page = 2;
+    int32 page_size = 3;
+}
+
+message ApplicationResponse {
+    string id = 1;
+    double amount = 2;
+    int32 term = 3;
+    double interest = 4;
+    ApplicationStatus status = 5;
+    google.protobuf.Timestamp created_at = 6;
+    google.protobuf.Timestamp updated_at = 7;
+}
+
+message ListApplicationResponse {
+    repeated ApplicationResponse applications = 1;
+    int32 page = 2;
+    int32 page_size = 3;
+    int32 total_count = 4;
+    int32 total_pages = 5;
+}
