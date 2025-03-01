@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package credit;
+package credit.v1;
 option go_package = "pkg/grpc/credit";
 
 import "google/protobuf/timestamp.proto";
@@ -22,17 +22,23 @@ service ApplicationService {
   rpc List(ListApplicationRequest) returns (ListApplicationResponse);
 }
 
+message Decimal {
+  // value = unscaled * 10^(-scale)
+  int64 unscaled = 1;
+  int32 scale = 2;
+}
+
 message CreateApplicationRequest {
-  double amount = 1;
-  int32 term = 2;
-  double interest = 3;
+  Decimal amount = 1;
+  uint32 term = 2;
+  Decimal interest = 3;
 }
 
 message UpdateApplicationRequest {
     string id = 1;
-    double amount = 2;
-    int32 term = 3;
-    double interest = 4;
+    Decimal amount = 2;
+    uint32 term = 3;
+    Decimal interest = 4;
 }
 
 message GetApplicationRequest {
@@ -45,15 +51,15 @@ message DeleteApplicationRequest {
 
 message ListApplicationRequest {
     ApplicationStatus status = 1;
-    int32 page = 2;
-    int32 page_size = 3;
+    uint32 page = 2;
+    uint32 page_size = 3;
 }
 
 message ApplicationResponse {
     string id = 1;
-    double amount = 2;
-    int32 term = 3;
-    double interest = 4;
+    Decimal amount = 2;
+    uint32 term = 3;
+    Decimal interest = 4;
     ApplicationStatus status = 5;
     google.protobuf.Timestamp created_at = 6;
     google.protobuf.Timestamp updated_at = 7;
@@ -61,8 +67,8 @@ message ApplicationResponse {
 
 message ListApplicationResponse {
     repeated ApplicationResponse applications = 1;
-    int32 page = 2;
-    int32 page_size = 3;
-    int32 total_count = 4;
-    int32 total_pages = 5;
+    uint32 page = 2;
+    uint32 page_size = 3;
+    uint32 total_count = 4;
+    uint32 total_pages = 5;
 }

@@ -14,15 +14,6 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-// @title Credit Origination API
-// @version 1.0
-// @description API для управления кредитными заявками
-// @host localhost:8080
-// @BasePath /
-// @schemes http
-// @securityDefinitions.apikey ApiKeyAuth
-// @in header
-// @name Authorization
 func main() {
 	// TODO: Добавить полноценный logger
 	log.Printf("Старт прилы")

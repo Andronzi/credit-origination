@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.29.3
-// source: proto/credit_application.proto
+// source: proto/v1/credit_application.proto
 
 package credit
 
@@ -20,11 +20,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ApplicationService_Get_FullMethodName    = "/credit.ApplicationService/Get"
-	ApplicationService_Create_FullMethodName = "/credit.ApplicationService/Create"
-	ApplicationService_Update_FullMethodName = "/credit.ApplicationService/Update"
-	ApplicationService_Delete_FullMethodName = "/credit.ApplicationService/Delete"
-	ApplicationService_List_FullMethodName   = "/credit.ApplicationService/List"
+	ApplicationService_Get_FullMethodName    = "/credit.v1.ApplicationService/Get"
+	ApplicationService_Create_FullMethodName = "/credit.v1.ApplicationService/Create"
+	ApplicationService_Update_FullMethodName = "/credit.v1.ApplicationService/Update"
+	ApplicationService_Delete_FullMethodName = "/credit.v1.ApplicationService/Delete"
+	ApplicationService_List_FullMethodName   = "/credit.v1.ApplicationService/List"
 )
 
 // ApplicationServiceClient is the client API for ApplicationService service.
@@ -245,7 +245,7 @@ func _ApplicationService_List_Handler(srv interface{}, ctx context.Context, dec 
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ApplicationService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "credit.ApplicationService",
+	ServiceName: "credit.v1.ApplicationService",
 	HandlerType: (*ApplicationServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -270,5 +270,5 @@ var ApplicationService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/credit_application.proto",
+	Metadata: "proto/v1/credit_application.proto",
 }
