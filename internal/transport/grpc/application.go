@@ -76,7 +76,7 @@ func (s *ApplicationServiceServer) List(ctx context.Context, req *credit.ListApp
 			Amount:    ToProtoDecimal(app.Amount),
 			Term:      uint32(app.Term),
 			Interest:  ToProtoDecimal(app.Interest),
-			Status:    0,
+			Status:    credit.ApplicationStatus(app.Status),
 			CreatedAt: timestamppb.New(app.CreatedAt),
 			UpdatedAt: timestamppb.New(app.UpdatedAt),
 		})
