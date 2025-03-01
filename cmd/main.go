@@ -4,7 +4,6 @@ import (
 	"log"
 	"net"
 
-	_ "github.com/Andronzi/credit-origination/docs"
 	"github.com/Andronzi/credit-origination/internal/client"
 	"github.com/Andronzi/credit-origination/internal/repository"
 	grpcserver "github.com/Andronzi/credit-origination/internal/transport/grpc"
