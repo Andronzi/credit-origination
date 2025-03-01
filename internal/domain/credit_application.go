@@ -56,7 +56,7 @@ func NewCreditApplication(amount decimal.Decimal, interest decimal.Decimal, term
 		Amount:    amount,
 		Term:      term,
 		Interest:  interest,
-		Status:    ApplicationStatus(NEW),
+		Status:    ApplicationStatus(SCORING),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}, nil

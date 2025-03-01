@@ -62,7 +62,15 @@ func (s *ApplicationServiceServer) Create(ctx context.Context, req *credit.Creat
 }
 
 func (s *ApplicationServiceServer) List(ctx context.Context, req *credit.ListApplicationRequest) (*credit.ListApplicationResponse, error) {
-	result, err := s.listUC.Execute(ctx, domain.ApplicationStatus(req.Status), int(req.Page), int(req.PageSize))
+	// TODO: Сделать качественнее маппинг
+	protoStatuses := req.Status
+	domainStatuses := make([]domain.ApplicationStatus, len(protoStatuses))
+
+	for i, protoStatus := range protoStatuses {
+		domainStatuses[i] = domain.ApplicationStatus(protoStatus)
+	}
+
+	result, err := s.listUC.Execute(ctx, domainStatuses, int(req.Page), int(req.PageSize))
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list applications")

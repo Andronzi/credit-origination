@@ -50,7 +50,7 @@ message DeleteApplicationRequest {
 }
 
 message ListApplicationRequest {
-    ApplicationStatus status = 1;
+    repeated ApplicationStatus status = 1;
     uint32 page = 2;
     uint32 page_size = 3;
 }

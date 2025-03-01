@@ -48,12 +48,13 @@ func (r *CreditRepo) UpdateStatus(ctx context.Context, id string, status domain.
 		Update("status", status).Error
 }
 
-func (r *CreditRepo) List(ctx context.Context, status domain.ApplicationStatus, offset int, limit int) ([]*domain.CreditApplication, int, error) {
+func (r *CreditRepo) List(ctx context.Context, statuses []domain.ApplicationStatus, offset int, limit int) ([]*domain.CreditApplication, int, error) {
 	var applications []*domain.CreditApplication
 
 	query := r.db.WithContext(ctx).Model(&domain.CreditApplication{})
-	// if status != "" {
-	query = query.Where("status = ?", status)
+	if len(statuses) > 0 {
+		query = query.Where("status IN ?", statuses)
+	}
 
 	var totalCount int64
 	if err := query.Count(&totalCount).Error; err != nil {
