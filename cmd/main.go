@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -31,6 +32,21 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to init Kafka producer: %v", err)
 	}
+
+	consumer, err := initKafkaConsumer()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// TODO: Подумать как лучше горутинки организовать
+	go func() {
+		for {
+			err := consumer.Consume(context.Background())
+			if err != nil {
+				log.Printf("Consumer error: %v", err)
+			}
+		}
+	}()
 
 	creditRepo := repository.NewCreditRepo(db)
 
@@ -82,4 +98,23 @@ func initKafkaProducer() (*messaging.KafkaProducer, error) {
 		"application",
 		string(schema),
 	)
+}
+
+func initKafkaConsumer() (*messaging.KafkaAvroConsumer, error) {
+	schema, err := os.ReadFile("/schemas/avro/credit/v1/StatusEvent.avsc")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read schema file: %w", err)
+	}
+
+	consumer, err := messaging.NewKafkaAvroConsumer(
+		[]string{"kafka:9092"},
+		"credit-group",
+		"application",
+		string(schema),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return consumer, nil
 }
