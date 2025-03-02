@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"github.com/Andronzi/credit-origination/internal/client"
+	"github.com/Andronzi/credit-origination/internal/messaging"
 	"github.com/Andronzi/credit-origination/internal/repository"
 	grpcserver "github.com/Andronzi/credit-origination/internal/transport/grpc"
 	"github.com/Andronzi/credit-origination/internal/usecase"
@@ -24,6 +27,11 @@ func main() {
 	}
 	log.Printf("Успешный Connect к базе")
 
+	kafkaProducer, err := initKafkaProducer()
+	if err != nil {
+		log.Fatalf("Failed to init Kafka producer: %v", err)
+	}
+
 	creditRepo := repository.NewCreditRepo(db)
 
 	scoringClient := client.NewScoringClient("http://scoring-service:8080")
@@ -33,9 +41,19 @@ func main() {
 		scoringClient,
 	)
 	listApplicationUC := usecase.NewListApplicationUseCase(creditRepo)
+	getApplicationUC := usecase.NewGetApplicationUseCase(creditRepo)
+	updateApplicationUC := usecase.NewUpdateApplicationUseCase(creditRepo)
+	deleteApplicationUC := usecase.NewDeleteApplicationUseCase(creditRepo)
 
 	grpcServer := grpc.NewServer()
-	createApplicationServer := grpcserver.NewCreateApplicationServer(createApplicationUC, listApplicationUC)
+	createApplicationServer := grpcserver.NewCreateApplicationServer(
+		getApplicationUC,
+		createApplicationUC,
+		listApplicationUC,
+		updateApplicationUC,
+		deleteApplicationUC,
+		kafkaProducer,
+	)
 
 	credit.RegisterApplicationServiceServer(grpcServer, createApplicationServer)
 
@@ -50,4 +68,18 @@ func main() {
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
+}
+
+// TODO: Унифицировать создание
+func initKafkaProducer() (*messaging.KafkaProducer, error) {
+	schema, err := os.ReadFile("/schemas/avro/credit/v1/StatusEvent.avsc")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read schema file: %w", err)
+	}
+
+	return messaging.NewKafkaProducer(
+		[]string{"kafka:9092"},
+		"application",
+		string(schema),
+	)
 }

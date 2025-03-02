@@ -48,6 +48,16 @@ func (r *CreditRepo) UpdateStatus(ctx context.Context, id string, status domain.
 		Update("status", status).Error
 }
 
+func (r *CreditRepo) Update(ctx context.Context, app *domain.CreditApplication) error {
+	return r.db.WithContext(ctx).Model(&domain.CreditApplication{}).
+		Where("id = ?", app.ID).
+		Updates(app).Error
+}
+
+func (r *CreditRepo) Delete(ctx context.Context, appID string) error {
+	return r.db.WithContext(ctx).Where("id = ?", appID).Delete(&domain.CreditApplication{}).Error
+}
+
 func (r *CreditRepo) List(ctx context.Context, statuses []domain.ApplicationStatus, offset int, limit int) ([]*domain.CreditApplication, int, error) {
 	var applications []*domain.CreditApplication
 
