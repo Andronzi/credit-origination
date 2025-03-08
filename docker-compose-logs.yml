@@ -11,7 +11,7 @@ services:
       - "9200:9200"
       - "9300:9300"
     networks:
-      - log-network
+      - shared-network
 
   kibana:
     image: docker.elastic.co/kibana/kibana:7.10.1
@@ -23,24 +23,24 @@ services:
     depends_on:
       - elasticsearch
     networks:
-      - log-network
+      - shared-network
 
   filebeat:
     image: docker.elastic.co/beats/filebeat:7.10.1
     container_name: filebeat
     user: "0:0"
     volumes:
-      - /var/log/myapp.log:/var/log/myapp.log:ro
+      - /app_logs:/var/log/myapp.log:ro
       - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
     networks:
-      - log-network
+      - shared-network
     depends_on:
       - elasticsearch
 
 networks:
-  log-network:
-    driver: bridge
+  shared-network:
+    external: true
 
 volumes:
-  log-volume:
+  app_logs:
     external: true

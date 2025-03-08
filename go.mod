@@ -37,6 +37,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250227231956-55c901821b1e // indirect
@@ -48,11 +49,13 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/linkedin/goavro/v2 v2.13.1
 	github.com/shopspring/decimal v1.4.0
+	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.35.0 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	google.golang.org/protobuf v1.36.5
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.25.12

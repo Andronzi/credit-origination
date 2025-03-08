@@ -1,4 +1,4 @@
-SCHEMA_FILE="schemas/avro/credit/v1/StatusEvent.avsc"
+SCHEMA_FILE="schemas/avro/application/v1/ApplicationEvent.avsc"
 
 if ! avro-tools compile schema "$SCHEMA_FILE" /tmp > /dev/null 2>&1; then
   echo "Ошибка: Схема $SCHEMA_FILE невалидна"

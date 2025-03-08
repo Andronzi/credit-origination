@@ -1,0 +1,64 @@
+{
+  "type": "record",
+  "name": "ApplicationEvent",
+  "namespace": "com.application.events.v1",
+  "fields": [
+    {
+      "name": "message_id",
+      "type": "string",
+      "doc": "Unique identifier for the message"
+    },
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "EventType",
+        "symbols": ["AGREEMENT_CREATED", "DISBURSEMENT_PROCESSED", "SCORING"]
+      },
+      "doc": "Defines the type of event"
+    },
+    {
+      "name": "timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Event timestamp in milliseconds"
+    },
+    {
+      "name": "application_id",
+      "type": "string",
+      "doc": "UUID заявки"
+    },
+    {
+      "name": "agreement_details",
+      "type": {
+        "type": "record",
+        "name": "AgreementDetails",
+        "fields": [
+          { "name": "application_id", "type": "string" },
+          { "name": "client_id", "type": "string" },
+          {
+            "name": "disbursement_amount",
+            "type": "long"
+          },
+          {
+            "name": "origination_amount",
+            "type": "long"
+          },
+          { "name": "to_bank_account_id", "type": "string" },
+          { "name": "term", "type": "int" },
+          { "name": "interest", "type": "long" },
+          { "name": "product_code", "type": "string" },
+          { "name": "product_version", "type": "string" },
+          {
+            "name": "payment_date",
+            "type": ["null", "long"],
+            "logicalType": "timestamp-millis",
+            "default": null,
+            "doc": "Disbursement payment date (only if event is DISBURSEMENT_PROCESSED)"
+          }
+        ]
+      },
+      "doc": "Agreement details, always included. If DISBURSEMENT_PROCESSED, payment_date is populated."
+    }
+  ]
+}

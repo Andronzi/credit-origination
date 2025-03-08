@@ -75,8 +75,19 @@ func (s *ApplicationServiceServer) Create(ctx context.Context, req *credit.Creat
 
 	event := messaging.StatusEvent{
 		ApplicationID: app.ID.String(),
-		NewStatus:     domain.NEW,
-		Timestamp:     time.Now(),
+		EventType:     "AGREEMENT_CREATED",
+		Timestamp:     time.Now().UnixMilli(),
+		AgreementDetails: messaging.AgreementDetails{
+			ApplicationID:      app.ID.String(),
+			ClientID:           "client_id",
+			DisbursementAmount: 1000,
+			OriginationAmount:  1000,
+			ToBankAccountID:    "account-id",
+			Term:               10,
+			Interest:           5,
+			ProductCode:        "product-code-id",
+			ProductVersion:     "product-version",
+		},
 	}
 
 	if err := s.producer.SendStatusEvent(event); err != nil {

@@ -6,15 +6,30 @@ import (
 	"time"
 
 	"github.com/Andronzi/credit-origination/internal/client"
-	"github.com/Andronzi/credit-origination/internal/domain"
 	"github.com/IBM/sarama"
+	"github.com/google/uuid"
 	"github.com/linkedin/goavro/v2"
 )
 
+type AgreementDetails struct {
+	ApplicationID      string `avro:"application_id"`
+	ClientID           string `avro:"client_id"`
+	DisbursementAmount int64  `avro:"disbursement_amount"`
+	OriginationAmount  int64  `avro:"origination_amount"`
+	ToBankAccountID    string `avro:"to_bank_account_id"`
+	Term               int32  `avro:"term"`
+	Interest           int64  `avro:"interest"`
+	ProductCode        string `avro:"product_code"`
+	ProductVersion     string `avro:"product_version"`
+	PaymentDate        *int64 `avro:"payment_date"` // TODO: Использую пока что указатель для поддержки nil :hmm:
+}
+
 type StatusEvent struct {
-	ApplicationID string                   `json:"application_id"`
-	NewStatus     domain.ApplicationStatus `json:"new_status"`
-	Timestamp     time.Time                `json:"timestamp"`
+	MessageID        string           `avro:"message_id"`
+	EventType        string           `avro:"event_type"`
+	ApplicationID    string           `avro:"application_id"`
+	Timestamp        int64            `avro:"timestamp"`
+	AgreementDetails AgreementDetails `avro:"agreement_details"`
 }
 
 type KafkaProducer struct {
@@ -60,9 +75,22 @@ func NewKafkaProducer(brokers []string, topic string, schema string) (*KafkaProd
 func (p *KafkaProducer) SendStatusEvent(event StatusEvent) error {
 	header := createConfluentHeader(p.schemaID)
 	avroData, err := p.codec.BinaryFromNative(nil, map[string]interface{}{
-		"application_id":     event.ApplicationID,
-		"application_status": "NEW",
-		"timestamp":          event.Timestamp.UnixMilli(),
+		"message_id":     uuid.New().String(),
+		"event_type":     "AGREEMENT_CREATED",
+		"timestamp":      time.Now().UnixMilli(),
+		"application_id": event.ApplicationID,
+		"agreement_details": map[string]interface{}{
+			"application_id":      event.ApplicationID,
+			"client_id":           "client_id",
+			"disbursement_amount": int64(1000),
+			"origination_amount":  int64(1000),
+			"to_bank_account_id":  "account-id",
+			"term":                int32(10),
+			"interest":            int64(5),
+			"product_code":        "product-code-id",
+			"product_version":     "product-version",
+			"payment_date":        nil,
+		},
 	})
 	if err != nil {
 		log.Printf("Ошибка сериализации Avro: %v", err)

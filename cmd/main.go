@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"os"
+	"time"
 
 	"github.com/Andronzi/credit-origination/internal/client"
 	"github.com/Andronzi/credit-origination/internal/messaging"
@@ -14,36 +14,56 @@ import (
 	"github.com/Andronzi/credit-origination/internal/usecase"
 	"github.com/Andronzi/credit-origination/pkg/database"
 	"github.com/Andronzi/credit-origination/pkg/grpc/credit"
+	"github.com/Andronzi/credit-origination/pkg/logger"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 func main() {
-	// TODO: Добавить полноценный logger
-	log.Printf("Старт прилы")
+	logger.InitLogger()
+	defer logger.Logger.Sync()
+
+	testFile, err := os.OpenFile("/var/log/myapp.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		log.Fatalf("Can not work with log file: %v", err)
+		// TODO: Обдумать тщатильнее данный момент
+		os.Exit(1)
+	}
+	testFile.Close()
+
+	logger.Logger.Info("Starting application", zap.String("origination-service", "main.go"))
 
 	db, err := database.ConnectPostgres()
 	if err != nil {
-		log.Fatalf("Database connection failed: %v", err)
+		logger.Logger.Fatal("Database connection failed", zap.Error(err))
 	}
-	log.Printf("Успешный Connect к базе")
+	logger.Logger.Info("Database connection success", zap.String("origination-service", "main.go"))
+
+	conn, err := net.DialTimeout("tcp", "schema-registry:8081", 5*time.Second)
+	if err != nil {
+		logger.Logger.Fatal("shema registry unavailable: %v", zap.Error(err))
+	}
+	conn.Close()
 
 	kafkaProducer, err := initKafkaProducer()
 	if err != nil {
-		log.Fatalf("Failed to init Kafka producer: %v", err)
+		logger.Logger.Fatal("Failed to init Kafka producer: %v", zap.Error(err))
 	}
+	logger.Logger.Info("Kafka producer connection success", zap.String("origination-service", "main.go"))
 
 	consumer, err := initKafkaConsumer()
 	if err != nil {
-		log.Fatal(err)
+		logger.Logger.Fatal("Failed to init Kafka consumer: %v", zap.Error(err))
 	}
+	logger.Logger.Info("Kafka consumer connection success", zap.String("origination-service", "main.go"))
 
 	// TODO: Подумать как лучше горутинки организовать
 	go func() {
 		for {
 			err := consumer.Consume(context.Background())
 			if err != nil {
-				log.Printf("Consumer error: %v", err)
+				logger.Logger.Error("Failed to consume message", zap.Error(err))
 			}
 		}
 	}()
@@ -77,20 +97,21 @@ func main() {
 
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		logger.Logger.Fatal("failed to listen tcp:", zap.Error(err))
 	}
 
-	log.Println("gRPC server is running on port 50051")
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		logger.Logger.Fatal("failed to serve gRPC server:", zap.Error(err))
 	}
+
+	logger.Logger.Info("gRPC server is running on port 50051")
 }
 
 // TODO: Унифицировать создание
 func initKafkaProducer() (*messaging.KafkaProducer, error) {
-	schema, err := os.ReadFile("/schemas/avro/credit/v1/StatusEvent.avsc")
+	schema, err := os.ReadFile("/schemas/avro/application/v1/ApplicationEvent.avsc")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read schema file: %w", err)
+		return nil, err
 	}
 
 	return messaging.NewKafkaProducer(
@@ -101,9 +122,9 @@ func initKafkaProducer() (*messaging.KafkaProducer, error) {
 }
 
 func initKafkaConsumer() (*messaging.KafkaAvroConsumer, error) {
-	schema, err := os.ReadFile("/schemas/avro/credit/v1/StatusEvent.avsc")
+	schema, err := os.ReadFile("/schemas/avro/application/v1/ApplicationEvent.avsc")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read schema file: %w", err)
+		return nil, err
 	}
 
 	consumer, err := messaging.NewKafkaAvroConsumer(
