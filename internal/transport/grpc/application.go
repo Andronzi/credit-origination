@@ -46,6 +46,44 @@ func StringToUUID(idStr string) (uuid.UUID, error) {
 	return id, nil
 }
 
+func MapGRPCStatusToDomain(grpcStatus credit.ApplicationStatus) domain.ApplicationStatus {
+	switch grpcStatus {
+	case credit.ApplicationStatus_DRAFT:
+		return domain.DRAFT
+	case credit.ApplicationStatus_APPLICATION:
+		return domain.APPLICATION
+	case credit.ApplicationStatus_SCORING:
+		return domain.SCORING
+	case credit.ApplicationStatus_EMPLOYMENT_CHECK:
+		return domain.EMPLOYMENT_CHECK
+	case credit.ApplicationStatus_APPROVED:
+		return domain.APPROVED
+	case credit.ApplicationStatus_REJECTED:
+		return domain.REJECTED
+	default:
+		return domain.DRAFT
+	}
+}
+
+func MapDomainStatusToGRPC(domainStatus domain.ApplicationStatus) credit.ApplicationStatus {
+	switch domainStatus {
+	case domain.DRAFT:
+		return credit.ApplicationStatus_DRAFT
+	case domain.APPLICATION:
+		return credit.ApplicationStatus_APPLICATION
+	case domain.SCORING:
+		return credit.ApplicationStatus_SCORING
+	case domain.EMPLOYMENT_CHECK:
+		return credit.ApplicationStatus_EMPLOYMENT_CHECK
+	case domain.APPROVED:
+		return credit.ApplicationStatus_APPROVED
+	case domain.REJECTED:
+		return credit.ApplicationStatus_REJECTED
+	default:
+		return credit.ApplicationStatus_DRAFT
+	}
+}
+
 func NewCreateApplicationServer(
 	getUC *usecase.GetApplicationUseCase,
 	createUC *usecase.CreateApplicationUseCase,
@@ -65,7 +103,20 @@ func NewCreateApplicationServer(
 }
 
 func (s *ApplicationServiceServer) Create(ctx context.Context, req *credit.CreateApplicationRequest) (*credit.ApplicationResponse, error) {
-	app, err := domain.NewCreditApplication(ToDomainDecimal(req.Amount), ToDomainDecimal(req.Interest), uint32(req.Term))
+	ID, err := StringToUUID(req.UserId)
+	if err != nil {
+		return nil, err
+	}
+	app, err := domain.NewCreditApplication(
+		ToDomainDecimal(req.DisbursementAmount),
+		ToDomainDecimal(req.OriginationAmount),
+		uuid.MustParse(req.ToBankAccountId),
+		uint32(req.Term),
+		ToDomainDecimal(req.Interest),
+		req.ProductCode,
+		req.ProductVersion,
+		ID,
+	)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -95,13 +146,18 @@ func (s *ApplicationServiceServer) Create(ctx context.Context, req *credit.Creat
 	}
 
 	return &credit.ApplicationResponse{
-		Id:        app.ID.String(),
-		Amount:    ToProtoDecimal(app.Amount),
-		Term:      uint32(app.Term),
-		Interest:  ToProtoDecimal(app.Interest),
-		Status:    credit.ApplicationStatus(app.Status),
-		CreatedAt: timestamppb.New(app.CreatedAt),
-		UpdatedAt: timestamppb.New(app.UpdatedAt),
+		Id:                 app.ID.String(),
+		UserId:             app.UserID.String(),
+		DisbursementAmount: ToProtoDecimal(app.DisbursementAmount),
+		OriginationAmount:  ToProtoDecimal(app.OriginationAmount),
+		ToBankAccountId:    app.ToBankAccountID.String(),
+		Term:               uint32(app.Term),
+		Interest:           ToProtoDecimal(app.Interest),
+		Status:             MapDomainStatusToGRPC(app.Status),
+		ProductCode:        app.ProductCode,
+		ProductVersion:     app.ProductVersion,
+		CreatedAt:          timestamppb.New(app.CreatedAt),
+		UpdatedAt:          timestamppb.New(app.UpdatedAt),
 	}, nil
 }
 
@@ -111,7 +167,7 @@ func (s *ApplicationServiceServer) List(ctx context.Context, req *credit.ListApp
 	domainStatuses := make([]domain.ApplicationStatus, len(protoStatuses))
 
 	for i, protoStatus := range protoStatuses {
-		domainStatuses[i] = domain.ApplicationStatus(protoStatus)
+		domainStatuses[i] = MapGRPCStatusToDomain(protoStatus)
 	}
 
 	result, err := s.listUC.Execute(ctx, domainStatuses, int(req.Page), int(req.PageSize))
@@ -124,13 +180,18 @@ func (s *ApplicationServiceServer) List(ctx context.Context, req *credit.ListApp
 
 	for _, app := range result.Applications {
 		listApplicationResponses = append(listApplicationResponses, &credit.ApplicationResponse{
-			Id:        app.ID.String(),
-			Amount:    ToProtoDecimal(app.Amount),
-			Term:      uint32(app.Term),
-			Interest:  ToProtoDecimal(app.Interest),
-			Status:    credit.ApplicationStatus(app.Status),
-			CreatedAt: timestamppb.New(app.CreatedAt),
-			UpdatedAt: timestamppb.New(app.UpdatedAt),
+			Id:                 app.ID.String(),
+			UserId:             app.UserID.String(),
+			DisbursementAmount: ToProtoDecimal(app.DisbursementAmount),
+			OriginationAmount:  ToProtoDecimal(app.OriginationAmount),
+			ToBankAccountId:    app.ToBankAccountID.String(),
+			Term:               uint32(app.Term),
+			Interest:           ToProtoDecimal(app.Interest),
+			Status:             MapDomainStatusToGRPC(app.Status),
+			ProductCode:        app.ProductCode,
+			ProductVersion:     app.ProductVersion,
+			CreatedAt:          timestamppb.New(app.CreatedAt),
+			UpdatedAt:          timestamppb.New(app.UpdatedAt),
 		})
 	}
 
@@ -151,13 +212,18 @@ func (s *ApplicationServiceServer) Get(ctx context.Context, req *credit.GetAppli
 	}
 
 	return &credit.ApplicationResponse{
-		Id:        app.ID.String(),
-		Amount:    ToProtoDecimal(app.Amount),
-		Term:      uint32(app.Term),
-		Interest:  ToProtoDecimal(app.Interest),
-		Status:    credit.ApplicationStatus(app.Status),
-		CreatedAt: timestamppb.New(app.CreatedAt),
-		UpdatedAt: timestamppb.New(app.UpdatedAt),
+		Id:                 app.ID.String(),
+		UserId:             app.UserID.String(),
+		DisbursementAmount: ToProtoDecimal(app.DisbursementAmount),
+		OriginationAmount:  ToProtoDecimal(app.OriginationAmount),
+		ToBankAccountId:    app.ToBankAccountID.String(),
+		Term:               uint32(app.Term),
+		Interest:           ToProtoDecimal(app.Interest),
+		Status:             MapDomainStatusToGRPC(app.Status),
+		ProductCode:        app.ProductCode,
+		ProductVersion:     app.ProductVersion,
+		CreatedAt:          timestamppb.New(app.CreatedAt),
+		UpdatedAt:          timestamppb.New(app.UpdatedAt),
 	}, nil
 }
 
@@ -167,14 +233,26 @@ func (s *ApplicationServiceServer) Update(ctx context.Context, req *credit.Updat
 	if err != nil {
 		return nil, err
 	}
+	UserID, err := StringToUUID(req.UserId)
+	if err != nil {
+		return nil, err
+	}
+	ToBankAccountId, err := StringToUUID(req.ToBankAccountId)
+	if err != nil {
+		return nil, err
+	}
 
 	app := &domain.CreditApplication{
-		ID:        ID,
-		Amount:    ToDomainDecimal(req.Amount),
-		Term:      req.Term,
-		Interest:  ToDomainDecimal(req.Interest),
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:                 ID,
+		UserID:             UserID,
+		DisbursementAmount: ToDomainDecimal(req.DisbursementAmount),
+		OriginationAmount:  ToDomainDecimal(req.OriginationAmount),
+		ToBankAccountID:    ToBankAccountId,
+		Term:               uint32(req.Term),
+		Interest:           ToDomainDecimal(req.Interest),
+		ProductCode:        req.ProductCode,
+		ProductVersion:     req.ProductVersion,
+		UpdatedAt:          now,
 	}
 
 	err = s.updateUC.Execute(ctx, app)
@@ -184,13 +262,18 @@ func (s *ApplicationServiceServer) Update(ctx context.Context, req *credit.Updat
 	}
 
 	return &credit.ApplicationResponse{
-		Id:        app.ID.String(),
-		Amount:    ToProtoDecimal(app.Amount),
-		Term:      uint32(app.Term),
-		Interest:  ToProtoDecimal(app.Interest),
-		Status:    credit.ApplicationStatus(app.Status),
-		CreatedAt: timestamppb.New(app.CreatedAt),
-		UpdatedAt: timestamppb.New(app.UpdatedAt),
+		Id:                 app.ID.String(),
+		UserId:             app.UserID.String(),
+		DisbursementAmount: ToProtoDecimal(app.DisbursementAmount),
+		OriginationAmount:  ToProtoDecimal(app.OriginationAmount),
+		ToBankAccountId:    app.ToBankAccountID.String(),
+		Term:               uint32(app.Term),
+		Interest:           ToProtoDecimal(app.Interest),
+		Status:             MapDomainStatusToGRPC(app.Status),
+		ProductCode:        app.ProductCode,
+		ProductVersion:     app.ProductVersion,
+		CreatedAt:          timestamppb.New(app.CreatedAt),
+		UpdatedAt:          timestamppb.New(app.UpdatedAt),
 	}, nil
 }
 
