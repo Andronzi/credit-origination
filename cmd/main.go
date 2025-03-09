@@ -137,9 +137,14 @@ func initKafkaConsumer(
 	if err != nil {
 		return nil, err
 	}
+	scoringHandler, err := handlers.NewScoringHandler(updateStatusUC, string(schema))
+	if err != nil {
+		return nil, err
+	}
 
 	handlers := []messaging.MessageHandler{
 		agreementHandler,
+		scoringHandler,
 	}
 
 	consumer, err := messaging.NewKafkaAvroConsumer(

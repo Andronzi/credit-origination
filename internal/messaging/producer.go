@@ -72,6 +72,15 @@ func NewKafkaProducer(brokers []string, topic string, schema string) (*KafkaProd
 	}, nil
 }
 
+func createAvroPaymentDate(paymentDate *int64) interface{} {
+	if paymentDate == nil {
+		return nil
+	}
+	return map[string]interface{}{
+		"long": *paymentDate,
+	}
+}
+
 func (p *KafkaProducer) SendStatusEvent(event ApplicationStatusEvent) error {
 	header := createConfluentHeader(p.schemaID)
 	avroData, err := p.codec.BinaryFromNative(nil, map[string]interface{}{
@@ -89,7 +98,7 @@ func (p *KafkaProducer) SendStatusEvent(event ApplicationStatusEvent) error {
 			"interest":            event.AgreementDetails.Interest,
 			"product_code":        event.AgreementDetails.ProductCode,
 			"product_version":     event.AgreementDetails.ProductVersion,
-			"payment_date":        nil,
+			"payment_date":        createAvroPaymentDate(event.AgreementDetails.PaymentDate),
 		},
 	})
 	if err != nil {

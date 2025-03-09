@@ -23,6 +23,27 @@ func NewUpdateStatusUseCase(
 	return &UpdateStatusUseCase{repo, producer}
 }
 
+func MapDomainStatusToAvro(status domain.ApplicationStatus) string {
+	if status == domain.APPROVED {
+		return "DISBURSEMENT_PROCESSED"
+	} else {
+		return string(status)
+	}
+}
+
+func CreatePaymentDate(status domain.ApplicationStatus) *int64 {
+	logger.Logger.Info("CreatePaymentDate", zap.String("status", string(status)))
+	if status == domain.APPROVED {
+		now := time.Now()
+		startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		unixStartOfDay := startOfDay.Unix()
+		logger.Logger.Info("CreatePaymentDate", zap.String("tinme", string(unixStartOfDay)))
+		return &unixStartOfDay
+	} else {
+		return nil
+	}
+}
+
 func (uc *UpdateStatusUseCase) Execute(ctx context.Context, appID uuid.UUID, newStatus domain.ApplicationStatus) error {
 	logger.Logger.Info("UpdateStatusUseCase.Execute started",
 		zap.String("app_id", appID.String()),
@@ -88,7 +109,7 @@ func (uc *UpdateStatusUseCase) Execute(ctx context.Context, appID uuid.UUID, new
 func (uc *UpdateStatusUseCase) createStatusEvent(app *domain.CreditApplication) messaging.ApplicationStatusEvent {
 	event := messaging.ApplicationStatusEvent{
 		ApplicationID: app.ID.String(),
-		EventType:     string(app.Status),
+		EventType:     MapDomainStatusToAvro(app.Status),
 		Timestamp:     time.Now().UnixMilli(),
 		AgreementDetails: messaging.AgreementDetails{
 			ApplicationID:      app.ID.String(),
@@ -100,6 +121,7 @@ func (uc *UpdateStatusUseCase) createStatusEvent(app *domain.CreditApplication) 
 			Interest:           app.Interest.IntPart(),
 			ProductCode:        app.ProductCode,
 			ProductVersion:     app.ProductVersion,
+			PaymentDate:        CreatePaymentDate(app.Status),
 		},
 	}
 
