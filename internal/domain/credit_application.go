@@ -14,12 +14,13 @@ import (
 type ApplicationStatus string
 
 const (
-	DRAFT            ApplicationStatus = "DRAFT"
-	APPLICATION      ApplicationStatus = "APPLICATION"
-	SCORING          ApplicationStatus = "SCORING"
-	EMPLOYMENT_CHECK ApplicationStatus = "EMPLOYMENT_CHECK"
-	APPROVED         ApplicationStatus = "APPROVED"
-	REJECTED         ApplicationStatus = "REJECTED"
+	DRAFT                         ApplicationStatus = "DRAFT"
+	APPLICATION_CREATED           ApplicationStatus = "APPLICATION_CREATED"
+	APPLICATION_AGREEMENT_CREATED ApplicationStatus = "AGREEMENT_CREATED"
+	SCORING                       ApplicationStatus = "SCORING"
+	EMPLOYMENT_CHECK              ApplicationStatus = "EMPLOYMENT_CHECK"
+	APPROVED                      ApplicationStatus = "APPROVED"
+	REJECTED                      ApplicationStatus = "REJECTED"
 )
 
 type CreditApplication struct {
@@ -29,7 +30,7 @@ type CreditApplication struct {
 	ToBankAccountID    uuid.UUID         `gorm:"type:uuid;" json:"account_id" example:"550e8400-e29b-41d4-a716-446655440000"`
 	UserID             uuid.UUID         `gorm:"type:uuid;index;foreignKey:UserID;references:ID" json:"user_id" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Term               uint32            `json:"term" example:"12"`
-	Interest           decimal.Decimal   `json:"interest" example:"15"`
+	Interest           decimal.Decimal   `gorm:"type:decimal(15,2)" json:"interest" example:"15.50"`
 	ProductCode        string            `gorm:"type:string; json:"product_code" example:"code-1"`
 	ProductVersion     string            `gorm:"type:srting; json:"product_version" example:"version1"`
 	Status             ApplicationStatus `gorm:"type:string"; "default: "DRAFT"`
@@ -59,6 +60,7 @@ func NewCreditApplication(
 	productCode string,
 	productVersion string,
 	userID uuid.UUID,
+	status ApplicationStatus,
 ) (*CreditApplication, error) {
 	if disbursementAmount.IsZero() || disbursementAmount.IsNegative() {
 		return nil, fmt.Errorf("%w: disbursement amount must be positive", ErrInvalidAmount)
@@ -106,10 +108,57 @@ func NewCreditApplication(
 		Interest:           interest,
 		ProductCode:        productCode,
 		ProductVersion:     productVersion,
-		Status:             DRAFT,
+		Status:             status,
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}, nil
+}
+
+var (
+	ErrInvalidTransitionFromDraft              = errors.New("invalid transition from DRAFT")
+	ErrInvalidTransitionFromApplicationCreated = errors.New("invalid transition from APPLICATION_CREATED")
+	ErrInvalidTransitionFromAgreementCreated   = errors.New("invalid transition from APPLICATION_AGREEMENT_CREATED")
+	ErrInvalidTransitionFromScoring            = errors.New("invalid transition from SCORING")
+	ErrInvalidTransitionFromEmploymentCheck    = errors.New("invalid transition from EMPLOYMENT_CHECK")
+	ErrTerminalStatus                          = errors.New("cannot transition from terminal status")
+	ErrUnknownStatus                           = errors.New("unknown current status")
+)
+
+func (a *CreditApplication) ChangeStatus(newStatus ApplicationStatus) error {
+	if a.Status == newStatus {
+		return errors.New("status already set")
+	}
+
+	switch a.Status {
+	case DRAFT:
+		if newStatus != APPLICATION_CREATED {
+			return ErrInvalidTransitionFromDraft
+		}
+	case APPLICATION_CREATED:
+		if newStatus != APPLICATION_AGREEMENT_CREATED {
+			return ErrInvalidTransitionFromApplicationCreated
+		}
+	case APPLICATION_AGREEMENT_CREATED:
+		if newStatus != SCORING {
+			return ErrInvalidTransitionFromAgreementCreated
+		}
+	case SCORING:
+		if newStatus != EMPLOYMENT_CHECK && newStatus != REJECTED && newStatus != APPROVED {
+			return ErrInvalidTransitionFromScoring
+		}
+	case EMPLOYMENT_CHECK:
+		if newStatus != APPROVED && newStatus != REJECTED {
+			return ErrInvalidTransitionFromEmploymentCheck
+		}
+	case APPROVED, REJECTED:
+		return ErrTerminalStatus
+	default:
+		return ErrUnknownStatus
+	}
+
+	a.Status = newStatus
+	a.UpdatedAt = time.Now().UTC()
+	return nil
 }
 
 func validateUUID(id uuid.UUID, fieldName string) error {

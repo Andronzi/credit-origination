@@ -8,11 +8,12 @@ import "google/protobuf/empty.proto";
 
 enum ApplicationStatus {
     DRAFT = 0;
-    APPLICATION = 1;
-    SCORING = 2;
-    EMPLOYMENT_CHECK = 3;
-    APPROVED = 4;
-    REJECTED = 5;
+    APPLICATION_CREATED = 1;
+    APPLICATION_AGREEMENT_CREATED = 2;
+    SCORING = 3;
+    EMPLOYMENT_CHECK = 4;
+    APPROVED = 5;
+    REJECTED = 6;
 }
 
 service ApplicationService {
@@ -38,6 +39,7 @@ message CreateApplicationRequest {
     Decimal interest = 6;
     string product_code = 7;
     string product_version = 8;
+    ApplicationStatus status = 9;
 }
 
 message UpdateApplicationRequest {
@@ -50,6 +52,7 @@ message UpdateApplicationRequest {
     Decimal interest = 7;
     string product_code = 8;
     string product_version = 9;
+    ApplicationStatus status = 10;
 }
 
 message GetApplicationRequest {

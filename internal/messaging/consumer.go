@@ -2,20 +2,28 @@ package messaging
 
 import (
 	"context"
-	"fmt"
 	"log"
 
+	"github.com/Andronzi/credit-origination/pkg/logger"
 	"github.com/IBM/sarama"
 	"github.com/linkedin/goavro/v2"
+	"go.uber.org/zap"
 )
 
 type KafkaAvroConsumer struct {
 	consumer sarama.ConsumerGroup
 	codec    *goavro.Codec
 	topic    string
+	handlers []MessageHandler
 }
 
-func NewKafkaAvroConsumer(brokers []string, groupID string, topic string, schema string) (*KafkaAvroConsumer, error) {
+func NewKafkaAvroConsumer(
+	brokers []string,
+	groupID string,
+	topic string,
+	schema string,
+	handlers []MessageHandler,
+) (*KafkaAvroConsumer, error) {
 	config := sarama.NewConfig()
 	config.Version = sarama.V2_5_0_0
 	config.Consumer.Offsets.Initial = sarama.OffsetOldest
@@ -34,17 +42,19 @@ func NewKafkaAvroConsumer(brokers []string, groupID string, topic string, schema
 		consumer: consumer,
 		codec:    codec,
 		topic:    topic,
+		handlers: handlers,
 	}, nil
 }
 
 func (c *KafkaAvroConsumer) Consume(ctx context.Context) error {
-	handler := consumerHandler{codec: c.codec}
+	handler := consumerHandler{codec: c.codec, handlers: c.handlers}
 
 	return c.consumer.Consume(ctx, []string{c.topic}, &handler)
 }
 
 type consumerHandler struct {
-	codec *goavro.Codec
+	codec    *goavro.Codec
+	handlers []MessageHandler
 }
 
 func (h *consumerHandler) Setup(sarama.ConsumerGroupSession) error   { return nil }
@@ -52,6 +62,7 @@ func (h *consumerHandler) Cleanup(sarama.ConsumerGroupSession) error { return ni
 
 func (h *consumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
+		logger.Logger.Info("Received Mssage", zap.ByteString("key", msg.Key), zap.Int64("offset", msg.Offset), zap.Int("length", len(msg.Value)))
 		if len(msg.Value) < 5 {
 			log.Printf("Invalid message length")
 			continue
@@ -70,7 +81,17 @@ func (h *consumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 			continue
 		}
 
-		fmt.Printf("Received event: %+v\n", data)
+		logger.Logger.Info("Before handler", zap.Int("length", len(h.handlers)))
+
+		for _, handlers := range h.handlers {
+			logger.Logger.Info("Inside handlers")
+
+			if err := handlers.Handle(msg); err != nil {
+				logger.Logger.Error("Failed to handle message", zap.Error(err))
+			}
+		}
+
+		logger.Logger.Info("Received event: %+v\n", zap.Any("event", data))
 		session.MarkMessage(msg, "")
 	}
 	return nil

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Andronzi/credit-origination/internal/client"
 	"github.com/Andronzi/credit-origination/internal/messaging"
+	"github.com/Andronzi/credit-origination/internal/messaging/handlers"
 	"github.com/Andronzi/credit-origination/internal/repository"
 	grpcserver "github.com/Andronzi/credit-origination/internal/transport/grpc"
 	"github.com/Andronzi/credit-origination/internal/usecase"
@@ -52,7 +53,21 @@ func main() {
 	}
 	logger.Logger.Info("Kafka producer connection success", zap.String("origination-service", "main.go"))
 
-	consumer, err := initKafkaConsumer()
+	creditRepo := repository.NewCreditRepo(db)
+
+	scoringClient := client.NewScoringClient("http://scoring-service:8080")
+
+	createApplicationUC := usecase.NewCreateApplicationUseCase(
+		creditRepo,
+		scoringClient,
+	)
+	listApplicationUC := usecase.NewListApplicationUseCase(creditRepo)
+	getApplicationUC := usecase.NewGetApplicationUseCase(creditRepo)
+	updateApplicationUC := usecase.NewUpdateApplicationUseCase(creditRepo)
+	updateStatusUC := usecase.NewUpdateStatusUseCase(creditRepo, kafkaProducer)
+	deleteApplicationUC := usecase.NewDeleteApplicationUseCase(creditRepo)
+
+	consumer, err := initKafkaConsumer(creditRepo, updateStatusUC)
 	if err != nil {
 		logger.Logger.Fatal("Failed to init Kafka consumer: %v", zap.Error(err))
 	}
@@ -68,25 +83,13 @@ func main() {
 		}
 	}()
 
-	creditRepo := repository.NewCreditRepo(db)
-
-	scoringClient := client.NewScoringClient("http://scoring-service:8080")
-
-	createApplicationUC := usecase.NewCreateApplicationUseCase(
-		creditRepo,
-		scoringClient,
-	)
-	listApplicationUC := usecase.NewListApplicationUseCase(creditRepo)
-	getApplicationUC := usecase.NewGetApplicationUseCase(creditRepo)
-	updateApplicationUC := usecase.NewUpdateApplicationUseCase(creditRepo)
-	deleteApplicationUC := usecase.NewDeleteApplicationUseCase(creditRepo)
-
 	grpcServer := grpc.NewServer()
 	createApplicationServer := grpcserver.NewCreateApplicationServer(
 		getApplicationUC,
 		createApplicationUC,
 		listApplicationUC,
 		updateApplicationUC,
+		updateStatusUC,
 		deleteApplicationUC,
 		kafkaProducer,
 	)
@@ -121,10 +124,22 @@ func initKafkaProducer() (*messaging.KafkaProducer, error) {
 	)
 }
 
-func initKafkaConsumer() (*messaging.KafkaAvroConsumer, error) {
+func initKafkaConsumer(
+	creditRepo *repository.CreditRepo,
+	updateStatusUC *usecase.UpdateStatusUseCase,
+) (*messaging.KafkaAvroConsumer, error) {
 	schema, err := os.ReadFile("/schemas/avro/application/v1/ApplicationEvent.avsc")
 	if err != nil {
 		return nil, err
+	}
+
+	agreementHandler, err := handlers.NewAgreementCreatedHandler(updateStatusUC, string(schema))
+	if err != nil {
+		return nil, err
+	}
+
+	handlers := []messaging.MessageHandler{
+		agreementHandler,
 	}
 
 	consumer, err := messaging.NewKafkaAvroConsumer(
@@ -132,6 +147,7 @@ func initKafkaConsumer() (*messaging.KafkaAvroConsumer, error) {
 		"credit-group",
 		"application",
 		string(schema),
+		handlers,
 	)
 	if err != nil {
 		return nil, err

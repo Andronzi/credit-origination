@@ -24,7 +24,7 @@ type AgreementDetails struct {
 	PaymentDate        *int64 `avro:"payment_date"` // TODO: Использую пока что указатель для поддержки nil :hmm:
 }
 
-type StatusEvent struct {
+type ApplicationStatusEvent struct {
 	MessageID        string           `avro:"message_id"`
 	EventType        string           `avro:"event_type"`
 	ApplicationID    string           `avro:"application_id"`
@@ -72,23 +72,23 @@ func NewKafkaProducer(brokers []string, topic string, schema string) (*KafkaProd
 	}, nil
 }
 
-func (p *KafkaProducer) SendStatusEvent(event StatusEvent) error {
+func (p *KafkaProducer) SendStatusEvent(event ApplicationStatusEvent) error {
 	header := createConfluentHeader(p.schemaID)
 	avroData, err := p.codec.BinaryFromNative(nil, map[string]interface{}{
 		"message_id":     uuid.New().String(),
-		"event_type":     "AGREEMENT_CREATED",
+		"event_type":     event.EventType,
 		"timestamp":      time.Now().UnixMilli(),
 		"application_id": event.ApplicationID,
 		"agreement_details": map[string]interface{}{
 			"application_id":      event.ApplicationID,
-			"client_id":           "client_id",
-			"disbursement_amount": int64(1000),
-			"origination_amount":  int64(1000),
-			"to_bank_account_id":  "account-id",
-			"term":                int32(10),
-			"interest":            int64(5),
-			"product_code":        "product-code-id",
-			"product_version":     "product-version",
+			"client_id":           event.AgreementDetails.ClientID,
+			"disbursement_amount": event.AgreementDetails.DisbursementAmount,
+			"origination_amount":  event.AgreementDetails.OriginationAmount,
+			"to_bank_account_id":  event.AgreementDetails.ToBankAccountID,
+			"term":                event.AgreementDetails.Term,
+			"interest":            event.AgreementDetails.Interest,
+			"product_code":        event.AgreementDetails.ProductCode,
+			"product_version":     event.AgreementDetails.ProductVersion,
 			"payment_date":        nil,
 		},
 	})

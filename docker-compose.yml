@@ -48,7 +48,7 @@ services:
     ports:
       - "50051:50051"
     networks:
-      - shared_kafka_network
+      - credit-origination_shared_kafka_network
       - my_network
   migrate:
     build: 
@@ -131,5 +131,5 @@ volumes:
 networks:
   my_network:
     driver: bridge
-  shared_kafka_network:
+  credit-origination_shared_kafka_network:
     external: true

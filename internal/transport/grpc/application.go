@@ -2,15 +2,17 @@ package grpc
 
 import (
 	"context"
-	"log"
+	"math"
 	"time"
 
 	"github.com/Andronzi/credit-origination/internal/domain"
 	"github.com/Andronzi/credit-origination/internal/messaging"
 	"github.com/Andronzi/credit-origination/internal/usecase"
 	"github.com/Andronzi/credit-origination/pkg/grpc/credit"
+	"github.com/Andronzi/credit-origination/pkg/logger"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -19,22 +21,23 @@ import (
 
 type ApplicationServiceServer struct {
 	credit.UnimplementedApplicationServiceServer
-	getUC    *usecase.GetApplicationUseCase
-	createUC *usecase.CreateApplicationUseCase
-	listUC   *usecase.ListApplicationUseCase
-	updateUC *usecase.UpdateApplicationUseCase
-	deleteUC *usecase.DeleteApplicationUseCase
-	producer *messaging.KafkaProducer
+	getUC          *usecase.GetApplicationUseCase
+	createUC       *usecase.CreateApplicationUseCase
+	listUC         *usecase.ListApplicationUseCase
+	updateUC       *usecase.UpdateApplicationUseCase
+	updateStatusUC *usecase.UpdateStatusUseCase
+	deleteUC       *usecase.DeleteApplicationUseCase
+	producer       *messaging.KafkaProducer
 }
 
 func ToDomainDecimal(d *credit.Decimal) decimal.Decimal {
-	return decimal.New(d.Unscaled, d.Scale)
+	return decimal.New(d.Unscaled, -d.Scale)
 }
 
 func ToProtoDecimal(d decimal.Decimal) *credit.Decimal {
 	return &credit.Decimal{
 		Unscaled: d.CoefficientInt64(),
-		Scale:    int32(d.Exponent()),
+		Scale:    int32(math.Abs(float64(d.Exponent()))),
 	}
 }
 
@@ -50,8 +53,10 @@ func MapGRPCStatusToDomain(grpcStatus credit.ApplicationStatus) domain.Applicati
 	switch grpcStatus {
 	case credit.ApplicationStatus_DRAFT:
 		return domain.DRAFT
-	case credit.ApplicationStatus_APPLICATION:
-		return domain.APPLICATION
+	case credit.ApplicationStatus_APPLICATION_CREATED:
+		return domain.APPLICATION_CREATED
+	case credit.ApplicationStatus_APPLICATION_AGREEMENT_CREATED:
+		return domain.APPLICATION_AGREEMENT_CREATED
 	case credit.ApplicationStatus_SCORING:
 		return domain.SCORING
 	case credit.ApplicationStatus_EMPLOYMENT_CHECK:
@@ -69,8 +74,10 @@ func MapDomainStatusToGRPC(domainStatus domain.ApplicationStatus) credit.Applica
 	switch domainStatus {
 	case domain.DRAFT:
 		return credit.ApplicationStatus_DRAFT
-	case domain.APPLICATION:
-		return credit.ApplicationStatus_APPLICATION
+	case domain.APPLICATION_CREATED:
+		return credit.ApplicationStatus_APPLICATION_CREATED
+	case domain.APPLICATION_AGREEMENT_CREATED:
+		return credit.ApplicationStatus_APPLICATION_AGREEMENT_CREATED
 	case domain.SCORING:
 		return credit.ApplicationStatus_SCORING
 	case domain.EMPLOYMENT_CHECK:
@@ -89,21 +96,30 @@ func NewCreateApplicationServer(
 	createUC *usecase.CreateApplicationUseCase,
 	listUC *usecase.ListApplicationUseCase,
 	updateUC *usecase.UpdateApplicationUseCase,
+	updateStatusUC *usecase.UpdateStatusUseCase,
 	deleteUC *usecase.DeleteApplicationUseCase,
 	producer *messaging.KafkaProducer,
 ) *ApplicationServiceServer {
 	return &ApplicationServiceServer{
-		getUC:    getUC,
-		createUC: createUC,
-		listUC:   listUC,
-		updateUC: updateUC,
-		deleteUC: deleteUC,
-		producer: producer,
+		getUC:          getUC,
+		createUC:       createUC,
+		listUC:         listUC,
+		updateUC:       updateUC,
+		updateStatusUC: updateStatusUC,
+		deleteUC:       deleteUC,
+		producer:       producer,
 	}
 }
 
 func (s *ApplicationServiceServer) Create(ctx context.Context, req *credit.CreateApplicationRequest) (*credit.ApplicationResponse, error) {
-	ID, err := StringToUUID(req.UserId)
+	logger.Logger.Info("Received create application request",
+		zap.String("service", "ApplicationServiceServer.Create"),
+		zap.String("user_id", req.UserId),
+		zap.String("to_bank_account_id", req.ToBankAccountId),
+		zap.Any("request", req),
+	)
+
+	userID, err := StringToUUID(req.UserId)
 	if err != nil {
 		return nil, err
 	}
@@ -115,37 +131,43 @@ func (s *ApplicationServiceServer) Create(ctx context.Context, req *credit.Creat
 		ToDomainDecimal(req.Interest),
 		req.ProductCode,
 		req.ProductVersion,
-		ID,
+		userID,
+		MapGRPCStatusToDomain(req.Status),
 	)
 	if err != nil {
+		logger.Logger.Error("Failed to create new credit application",
+			zap.String("user_id", req.UserId),
+			zap.Error(err),
+		)
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	logger.Logger.Info("Successfully created credit application",
+		zap.String("app_id", app.ID.String()),
+	)
+
 	if err := s.createUC.Execute(ctx, app); err != nil {
+		logger.Logger.Error("createUC execution failed",
+			zap.String("app_id", app.ID.String()),
+			zap.Error(err),
+		)
 		return nil, status.Error(codes.Internal, "failed to create application")
 	}
+	logger.Logger.Info("createUC executed successfully",
+		zap.String("app_id", app.ID.String()),
+	)
 
-	event := messaging.StatusEvent{
-		ApplicationID: app.ID.String(),
-		EventType:     "AGREEMENT_CREATED",
-		Timestamp:     time.Now().UnixMilli(),
-		AgreementDetails: messaging.AgreementDetails{
-			ApplicationID:      app.ID.String(),
-			ClientID:           "client_id",
-			DisbursementAmount: 1000,
-			OriginationAmount:  1000,
-			ToBankAccountID:    "account-id",
-			Term:               10,
-			Interest:           5,
-			ProductCode:        "product-code-id",
-			ProductVersion:     "product-version",
-		},
+	if err := s.updateStatusUC.Execute(ctx, app.ID, domain.APPLICATION_AGREEMENT_CREATED); err != nil {
+		logger.Logger.Error("updateStatusUC execution failed",
+			zap.String("app_id", app.ID.String()),
+			zap.Error(err),
+		)
+		return nil, status.Error(codes.Internal, "status update failed")
 	}
+	logger.Logger.Info("Application status updated",
+		zap.String("app_id", app.ID.String()),
+	)
 
-	if err := s.producer.SendStatusEvent(event); err != nil {
-		log.Printf("Failed to send Kafka event: %v", err)
-	}
-
-	return &credit.ApplicationResponse{
+	resp := &credit.ApplicationResponse{
 		Id:                 app.ID.String(),
 		UserId:             app.UserID.String(),
 		DisbursementAmount: ToProtoDecimal(app.DisbursementAmount),
@@ -158,7 +180,12 @@ func (s *ApplicationServiceServer) Create(ctx context.Context, req *credit.Creat
 		ProductVersion:     app.ProductVersion,
 		CreatedAt:          timestamppb.New(app.CreatedAt),
 		UpdatedAt:          timestamppb.New(app.UpdatedAt),
-	}, nil
+	}
+	logger.Logger.Info("Sending response for create application",
+		zap.String("app_id", app.ID.String()),
+	)
+
+	return resp, nil
 }
 
 func (s *ApplicationServiceServer) List(ctx context.Context, req *credit.ListApplicationRequest) (*credit.ListApplicationResponse, error) {
@@ -250,6 +277,7 @@ func (s *ApplicationServiceServer) Update(ctx context.Context, req *credit.Updat
 		ToBankAccountID:    ToBankAccountId,
 		Term:               uint32(req.Term),
 		Interest:           ToDomainDecimal(req.Interest),
+		Status:             MapGRPCStatusToDomain(req.Status),
 		ProductCode:        req.ProductCode,
 		ProductVersion:     req.ProductVersion,
 		UpdatedAt:          now,
