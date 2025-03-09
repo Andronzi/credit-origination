@@ -58,12 +58,16 @@ func (r *CreditRepo) Delete(ctx context.Context, appID string) error {
 	return r.db.WithContext(ctx).Where("id = ?", appID).Delete(&domain.CreditApplication{}).Error
 }
 
-func (r *CreditRepo) List(ctx context.Context, statuses []domain.ApplicationStatus, offset int, limit int) ([]*domain.CreditApplication, int, error) {
+func (r *CreditRepo) List(ctx context.Context, statuses []domain.ApplicationStatus, offset int, limit int, userID string) ([]*domain.CreditApplication, int, error) {
 	var applications []*domain.CreditApplication
 
 	query := r.db.WithContext(ctx).Model(&domain.CreditApplication{})
 	if len(statuses) > 0 {
 		query = query.Where("status IN ?", statuses)
+	}
+
+	if userID != "" {
+		query = query.Where("user_id = ?", userID)
 	}
 
 	var totalCount int64

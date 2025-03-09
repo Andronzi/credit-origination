@@ -25,14 +25,14 @@ func NewListApplicationUseCase(repo domain.CreditRepository) *ListApplicationUse
 	}
 }
 
-func (uc *ListApplicationUseCase) Execute(ctx context.Context, statuses []domain.ApplicationStatus, page int, pageSize int) (*ListApplicationResult, error) {
+func (uc *ListApplicationUseCase) Execute(ctx context.Context, statuses []domain.ApplicationStatus, page int, pageSize int, userID string) (*ListApplicationResult, error) {
 	if page <= 0 || pageSize <= 0 {
 		return nil, errors.New("invalid pagination parameters")
 	}
 
 	offset := (page - 1) * pageSize
 
-	applications, totalCount, err := uc.repo.List(ctx, statuses, offset, pageSize)
+	applications, totalCount, err := uc.repo.List(ctx, statuses, offset, pageSize, userID)
 	if err != nil {
 		return nil, err
 	}

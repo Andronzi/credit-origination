@@ -197,7 +197,7 @@ func (s *ApplicationServiceServer) List(ctx context.Context, req *credit.ListApp
 		domainStatuses[i] = MapGRPCStatusToDomain(protoStatus)
 	}
 
-	result, err := s.listUC.Execute(ctx, domainStatuses, int(req.Page), int(req.PageSize))
+	result, err := s.listUC.Execute(ctx, domainStatuses, int(req.Page), int(req.PageSize), req.UserId)
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to list applications")

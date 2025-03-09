@@ -67,6 +67,7 @@ message ListApplicationRequest {
     repeated ApplicationStatus status = 1;
     uint32 page = 2;
     uint32 page_size = 3;
+    string user_id = 4;
 }
 
 message ApplicationResponse {
