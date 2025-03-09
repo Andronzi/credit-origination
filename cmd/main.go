@@ -41,9 +41,9 @@ func main() {
 	}
 	logger.Logger.Info("Database connection success", zap.String("origination-service", "main.go"))
 
-	conn, err := net.DialTimeout("tcp", "schema-registry:8081", 5*time.Second)
+	conn, err := net.DialTimeout("tcp", "host.docker.internal:8081", 5*time.Second)
 	if err != nil {
-		logger.Logger.Fatal("shema registry unavailable: %v", zap.Error(err))
+		logger.Logger.Fatal("schema registry unavailable: %v", zap.Error(err))
 	}
 	conn.Close()
 
@@ -118,7 +118,7 @@ func initKafkaProducer() (*messaging.KafkaProducer, error) {
 	}
 
 	return messaging.NewKafkaProducer(
-		[]string{"kafka:9092"},
+		[]string{"host.docker.internal:9092"},
 		"application",
 		string(schema),
 	)
@@ -143,7 +143,7 @@ func initKafkaConsumer(
 	}
 
 	consumer, err := messaging.NewKafkaAvroConsumer(
-		[]string{"kafka:9092"},
+		[]string{"host.docker.internal:9092"},
 		"credit-group",
 		"application",
 		string(schema),

@@ -56,7 +56,7 @@ func NewKafkaProducer(brokers []string, topic string, schema string) (*KafkaProd
 		return nil, err
 	}
 
-	registry := client.NewSchemaRegistryClient("http://schema-registry:8081")
+	registry := client.NewSchemaRegistryClient("http://host.docker.internal:8081")
 	schemaID, err := registry.GetSchemaID(topic, schema)
 	if err != nil {
 		log.Printf("Ошбика получения SchemaID: %v", err)

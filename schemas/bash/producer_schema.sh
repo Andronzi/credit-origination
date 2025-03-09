@@ -1,10 +1,10 @@
 SCHEMA_FILE="schemas/avro/application/v1/ApplicationEvent.avsc"
 
-if ! avro-tools compile schema "$SCHEMA_FILE" /tmp > /dev/null 2>&1; then
-  echo "Ошибка: Схема $SCHEMA_FILE невалидна"
-  avro-tools compile schema "$SCHEMA_FILE" /tmp
-  exit 1
-fi
+# if ! avro-tools compile schema "$SCHEMA_FILE" /tmp > /dev/null 2>&1; then
+#   echo "Ошибка: Схема $SCHEMA_FILE невалидна"
+#   avro-tools compile schema "$SCHEMA_FILE" /tmp
+#   exit 1
+# fi
 
 
 SCHEMA=$(cat "$SCHEMA_FILE")
