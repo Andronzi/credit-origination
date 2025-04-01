@@ -131,7 +131,7 @@ func (a *CreditApplication) ChangeStatus(newStatus ApplicationStatus) error {
 
 	switch a.Status {
 	case DRAFT:
-		if newStatus != APPLICATION_CREATED {
+		if newStatus != APPLICATION_CREATED && newStatus != APPLICATION_AGREEMENT_CREATED {
 			return ErrInvalidTransitionFromDraft
 		}
 	case APPLICATION_CREATED:
