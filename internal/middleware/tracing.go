@@ -6,8 +6,11 @@ import (
 
 	"github.com/Andronzi/credit-origination/pkg/logger"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/attribute"
+	otelCodes "go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
 	"go.opentelemetry.io/otel/trace"
@@ -19,19 +22,32 @@ import (
 )
 
 func InitTracer() (*sdktrace.TracerProvider, error) {
-	exporter, err := otlptracehttp.New(context.Background(),
-		otlptracehttp.WithEndpoint("host.docker.internal:4317"),
-		otlptracehttp.WithInsecure(),
+	exporter, err := otlptracegrpc.New(context.Background(),
+		otlptracegrpc.WithEndpoint("host.docker.internal:4317"),
+		otlptracegrpc.WithInsecure(),
 	)
 	if err != nil {
 		return nil, err
 	}
-
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
+		sdktrace.WithBatcher(exporter,
+			sdktrace.WithBatchTimeout(5*time.Second),
+			sdktrace.WithMaxExportBatchSize(10),
+		),
+		sdktrace.WithResource(resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("credit-origination-service"),
+			attribute.String("environment", "development"),
+		)),
 	)
 
 	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
+	logger.Logger.Info("Tracer provider initialized")
 	return tp, nil
 }
 
@@ -39,8 +55,10 @@ func TracingInterceptor(ctx context.Context, req interface{}, info *grpc.UnarySe
 	ctx = extractTraceContext(ctx)
 
 	ctx, span := otel.Tracer("grpc").Start(ctx, info.FullMethod,
+		trace.WithSpanKind(trace.SpanKindServer),
 		trace.WithAttributes(
-			semconv.RPCSystemKey.String("grpc"),
+			semconv.RPCSystemGRPC,
+			semconv.RPCServiceKey.String("credit.origination.v1"),
 			semconv.RPCMethodKey.String(info.FullMethod),
 		))
 	defer span.End()
@@ -56,12 +74,28 @@ func TracingInterceptor(ctx context.Context, req interface{}, info *grpc.UnarySe
 	duration := time.Since(startTime)
 
 	statusCode := codes.OK
+	otelStatus := otelCodes.Ok
+	var statusMessage string
+
 	if err != nil {
 		if s, ok := status.FromError(err); ok {
 			statusCode = s.Code()
+			otelStatus = otelCodes.Error
+			statusMessage = s.Message()
+		} else {
+			otelStatus = otelCodes.Error
+			statusMessage = err.Error()
 		}
+		span.SetStatus(otelStatus, statusMessage)
 		span.RecordError(err)
+	} else {
+		statusMessage = "OK"
+		span.SetStatus(otelStatus, statusMessage)
 	}
+
+	span.SetAttributes(
+		semconv.RPCGRPCStatusCodeKey.Int64(int64(statusCode)),
+	)
 
 	logger.Logger.Info("Request completed",
 		zap.String("method", info.FullMethod),
@@ -81,13 +115,11 @@ func extractTraceContext(ctx context.Context) context.Context {
 		return ctx
 	}
 
-	traceParent := md.Get("traceparent")
-	if len(traceParent) > 0 {
+	ctx = otel.GetTextMapPropagator().Extract(ctx, propagation.HeaderCarrier(md))
+
+	if traceParent := md.Get("traceparent"); len(traceParent) > 0 {
 		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("traceparent", traceParent[0]))
 	}
 
-	return otel.GetTextMapPropagator().Extract(
-		ctx,
-		propagation.HeaderCarrier(md),
-	)
+	return ctx
 }

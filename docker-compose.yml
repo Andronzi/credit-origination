@@ -35,6 +35,22 @@ services:
     networks:
       - my_network
 
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --port 6390 --requirepass yourhardcodedpassword --save 60 1
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "6390:6390"
+    volumes:
+      - redis_data:/data
+    networks:
+      - my_network
+
   app:
     build: .
     restart: always
@@ -54,6 +70,8 @@ services:
       DB_USER_FILE: /run/secrets/db_user
       DB_PASSWORD_FILE: /run/secrets/db_password
       DB_NAME_FILE: /run/secrets/db_name
+      REDIS_ADDR: "redis:6390"
+      REDIS_PASSWORD: "yourhardcodedpassword"
     secrets:
       - db_user
       - db_password
@@ -146,6 +164,7 @@ secrets:
 
 volumes:
   pg_data:
+  redis_data:
   app_logs:
     external: true
 

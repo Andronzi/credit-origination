@@ -93,8 +93,8 @@ func main() {
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			middleware.TracingInterceptor,
-			middleware.IdempotencyInterceptor,
 			middleware.ErrorInjectionInterceptor(),
+			middleware.IdempotencyInterceptor,
 		),
 	)
 	createApplicationServer := grpcserver.NewCreateApplicationServer(
