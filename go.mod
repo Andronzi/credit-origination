@@ -4,7 +4,7 @@ go 1.23.5
 
 require (
 	github.com/google/uuid v1.6.0
-	google.golang.org/grpc v1.70.0
+	google.golang.org/grpc v1.69.0-dev
 )
 
 require (
@@ -18,6 +18,8 @@ require (
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/go-delve/delve v1.24.1 // indirect
 	github.com/go-delve/liner v1.2.3-0.20231231155935-4726ab1d7f62 // indirect
+	github.com/go-logr/logr v1.2.4 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-dap v0.12.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
@@ -44,6 +46,11 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/cobra v1.9.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
+	go.opentelemetry.io/otel v1.16.0 // indirect
+	go.opentelemetry.io/otel/exporters/jaeger v1.16.0 // indirect
+	go.opentelemetry.io/otel/metric v1.16.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.16.0 // indirect
+	go.opentelemetry.io/otel/trace v1.16.0 // indirect
 	go.starlark.net v0.0.0-20231101134539-556fd59b42f6 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/arch v0.11.0 // indirect

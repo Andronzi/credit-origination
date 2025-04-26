@@ -10,6 +10,7 @@ import (
 	"github.com/Andronzi/credit-origination/internal/client"
 	"github.com/Andronzi/credit-origination/internal/messaging"
 	"github.com/Andronzi/credit-origination/internal/messaging/handlers"
+	"github.com/Andronzi/credit-origination/internal/middleware"
 	"github.com/Andronzi/credit-origination/internal/repository"
 	grpcserver "github.com/Andronzi/credit-origination/internal/transport/grpc"
 	"github.com/Andronzi/credit-origination/internal/usecase"
@@ -34,6 +35,12 @@ func main() {
 	testFile.Close()
 
 	logger.Logger.Info("Starting application", zap.String("origination-service", "main.go"))
+
+	tp, err := middleware.InitTracer()
+	if err != nil {
+		logger.Logger.Fatal("Failed to initialize tracer", zap.Error(err))
+	}
+	defer tp.Shutdown(context.Background())
 
 	db, err := database.ConnectPostgres()
 	if err != nil {
@@ -83,7 +90,12 @@ func main() {
 		}
 	}()
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			middleware.ErrorInjectionInterceptor(),
+			middleware.TracingInterceptor,
+		),
+	)
 	createApplicationServer := grpcserver.NewCreateApplicationServer(
 		getApplicationUC,
 		createApplicationUC,
