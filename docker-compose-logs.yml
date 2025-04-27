@@ -12,6 +12,11 @@ services:
       - "9300:9300"
     networks:
       - shared-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   kibana:
     image: docker.elastic.co/kibana/kibana:7.10.1
@@ -28,18 +33,48 @@ services:
   filebeat:
     image: docker.elastic.co/beats/filebeat:7.10.1
     container_name: filebeat
-    user: "0:0"
+    user: root
     volumes:
-      - /app_logs:/var/log/myapp.log:ro
-      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - app_logs:/var/log/app:ro
+    command: >
+      /bin/sh -c "
+        echo '
+          filebeat.inputs:
+          - type: log
+            enabled: true
+            paths:
+              - /var/log/app/myapp.log
+            json:
+              keys_under_root: true
+              overwrite_keys: true
+              add_error_key: true
+          output.elasticsearch:
+            hosts: [\"http://elasticsearch:9200\"]
+            index: \"filebeat-%{[agent.version]}-%{+yyyy.MM.dd}\"
+          setup.template.name: \"filebeat\"
+          setup.template.pattern: \"filebeat-*\"
+          setup.kibana:
+            host: \"http://kibana:5601\"
+          setup.template.settings:
+            index.number_of_shards: 1
+          logging.level: info
+          logging.to_files: true
+          logging.files:
+            path: /var/log/filebeat
+            name: filebeat.log
+            keepfiles: 7
+        ' > /usr/share/filebeat/filebeat.yml &&
+        filebeat -e --strict.perms=false -c /usr/share/filebeat/filebeat.yml
+      "
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
     networks:
       - shared-network
-    depends_on:
-      - elasticsearch
 
 networks:
   shared-network:
-    external: true
+    driver: bridge
 
 volumes:
   app_logs:
